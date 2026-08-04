@@ -28,6 +28,14 @@ on:
         options:
           - create
           - whatIf
+      foundryResourceUrl:
+        description: Foundry endpoint URL (for Azure:FoundryResourceUrl)
+        required: true
+        type: string
+      modelName:
+        description: Model name (for Azure:ModelName)
+        required: true
+        type: string
       runBuild:
         description: Build Web App
         default: true
@@ -105,6 +113,9 @@ jobs:
       createResourceGroup: ${{ inputs.createResourceGroup }}
       bicepDeploymentMode: ${{ inputs.bicepDeploymentMode }}
       addRoleAssignments: ${{ inputs.addRoleAssignments }}
+      createUserAssignedIdentity: true
+      foundryResourceUrl: ${{ inputs.foundryResourceUrl }}
+      modelName: ${{ inputs.modelName }}
 
 # ------------------------------------------------------------------------------------------------------------------------
   build-web-app:

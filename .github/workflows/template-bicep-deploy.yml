@@ -57,6 +57,21 @@ on:
         required: false
         type: boolean
         default: true
+      createUserAssignedIdentity:
+        description: Create and use a user-assigned identity
+        required: false
+        type: boolean
+        default: true
+      foundryResourceUrl:
+        description: Foundry endpoint URL
+        required: false
+        type: string
+        default: ''
+      modelName:
+        description: Foundry model name
+        required: false
+        type: string
+        default: ''
 
 # ------------------------------------------------------------------------------------------------------------------------
 jobs:
@@ -82,6 +97,9 @@ jobs:
       createResourceGroup: ${{ inputs.createResourceGroup }}
       requestorName: ${{ inputs.requestorName }}
       ADD_ROLE_ASSIGNMENTS: ${{ inputs.addRoleAssignments }}
+      CREATE_USER_ASSIGNED_IDENTITY: ${{ inputs.createUserAssignedIdentity }}
+      FOUNDRY_RESOURCE_URL: ${{ inputs.foundryResourceUrl }}
+      MODEL_NAME: ${{ inputs.modelName }}
 
     # ------------------------------------------------------------------------------------------------------------------------
     # Outputs
@@ -253,5 +271,16 @@ jobs:
           GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA::[Dad] TO [yourAppId];
           GRANT EXECUTE ON SCHEMA::[Dad] TO [yourAppId];
           ```
+      run: echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+      continue-on-error: true
+
+    - name: Write Foundry Config Summary
+      if: ${{ inputs.runCreateInfra }}
+      env:
+        SUMMARY: |
+          ## Runtime AI configuration
+          - Foundry URL: ${{ inputs.foundryResourceUrl || '(not provided)' }}
+          - Model name: ${{ inputs.modelName || '(not provided)' }}
+          - User-assigned identity enabled: ${{ inputs.createUserAssignedIdentity }}
       run: echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
       continue-on-error: true
