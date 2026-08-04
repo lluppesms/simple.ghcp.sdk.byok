@@ -1,0 +1,394 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# Reusable Workflow: Generate a Software Bill of Materials (SBOM) and Scan for Vulnerabilities
+# ------------------------------------------------------------------------------------------------------------------------
+# This workflow generates an SBOM for the repository using anchore/sbom-action, then scans it
+# for known vulnerabilities using Grype (via anchore/scan-action). Results are:
+#   - Displayed as a table summary in the workflow log
+#   - Uploaded to the GitHub Security tab as a SARIF file
+#   - Published as workflow artifacts (SBOM + SARIF + styled HTML report)
+#
+# For more information on SBOM in GitHub, see:
+#   https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/exporting-a-software-bill-of-materials-for-your-repository
+# For more information on Grype, see: https://github.com/anchore/grype
+# For more information on anchore/scan-action, see: https://github.com/anchore/scan-action
+# ------------------------------------------------------------------------------------------------------------------------
+# NOTE: The repository must have the Dependency Graph enabled for full SBOM coverage.
+#   Repository Settings -> Security -> Code security -> Dependency graph -> Enable
+# NOTE: To see the SARIF results in the Security tab, the repository must have
+#   GitHub Advanced Security enabled (available for public repos and GHAS-licensed private repos).
+#   Repository Settings -> Security -> Code security -> GitHub Advanced Security -> Enable
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_create_sbom
+run-name: Generate SBOM
+
+on:
+  workflow_call:
+    inputs:
+      continueOnSBOMError:
+        description: Continue workflow if SBOM generation or vulnerability scan fails
+        required: false
+        default: true
+        type: boolean
+      sbomFormat:
+        description: SBOM output format (spdx-json, cyclonedx-json, or syft-json)
+        required: false
+        default: 'spdx-json'
+        type: string
+      artifactName:
+        description: Name for the uploaded SBOM artifact
+        required: false
+        default: 'sbom'
+        type: string
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  generate-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write          # needed to write SBOM artifact and submit to dependency graph
+      packages: read           # needed to read package information
+      security-events: write   # needed to upload SARIF to the Security tab
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore .NET dependencies
+      continue-on-error: ${{ inputs.continueOnSBOMError }}
+      shell: bash
+      run: |
+        mapfile -t projects < <(find src -type f -name '*.csproj' | sort)
+
+        if [ ${#projects[@]} -eq 0 ]; then
+          echo "No .csproj files found under src; skipping .NET restore."
+          exit 0
+        fi
+
+        for project in "${projects[@]}"; do
+          echo "Restoring $project"
+          dotnet restore "$project" --verbosity minimal
+        done
+
+    - name: Generate SBOM
+      id: sbom
+      continue-on-error: ${{ inputs.continueOnSBOMError }}
+      uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532
+      # pinned to v0.18.0 (SHA: e11c554f704a0b820cbf8c51673f6945e0731532)
+      # See: https://github.com/anchore/sbom-action/releases/tag/v0.18.0
+      with:
+        format: ${{ inputs.sbomFormat }}
+        artifact-name: ${{ inputs.artifactName }}.spdx.json
+        upload-artifact: true
+        upload-artifact-retention: 90
+        output-file: sbom.spdx.json
+
+    - name: Display SBOM summary
+      if: success()
+      continue-on-error: true
+      shell: bash
+      run: |
+        if [ -f "sbom.spdx.json" ]; then
+          echo "✅ SBOM generated successfully!"
+          echo "Format: ${{ inputs.sbomFormat }}"
+          echo "Package count: $(jq '.packages | length' sbom.spdx.json 2>/dev/null || echo 'unknown')"
+          echo ".NET asset manifests: $(find src -path '*/obj/project.assets.json' | wc -l)"
+        else
+          echo "⚠️  SBOM file not found at expected path."
+        fi
+
+    - name: Scan SBOM for vulnerabilities
+      id: scan
+      continue-on-error: ${{ inputs.continueOnSBOMError }}
+      uses: anchore/scan-action@v7
+      # See: https://github.com/anchore/scan-action
+      env:
+        GRYPE_DB_VALIDATE_AGE: "false"  # prevent failure when cached DB exceeds the 5-day age limit
+      with:
+        sbom: sbom.spdx.json
+        fail-build: false
+        output-format: table
+
+    - name: Upload vulnerability findings to Security tab
+      if: always() && steps.scan.outputs.sarif != ''
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif }}
+
+    - name: Generate JSON report for HTML conversion
+      if: always()
+      continue-on-error: true
+      shell: bash
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+        export GRYPE_DB_VALIDATE_AGE=false
+        grype db update || true
+        grype sbom:sbom.spdx.json --output json > grype-results.json || echo '{"matches":[]}' > grype-results.json
+        echo "JSON report generated ($(jq '.matches | length' grype-results.json 2>/dev/null || echo '?') matches)"
+
+    - name: Generate HTML vulnerability report
+      if: always()
+      continue-on-error: true
+      shell: bash
+      run: |
+        python3 - <<'PYTHON_SCRIPT'
+        import html
+        import json
+        import os
+        from pathlib import Path
+        from datetime import datetime, timezone
+
+        try:
+            with open('grype-results.json') as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"Could not read grype-results.json: {e}")
+            data = {'matches': []}
+
+        matches = data.get('matches', [])
+        github_server = os.getenv('GITHUB_SERVER_URL', 'https://github.com')
+        github_repo = os.getenv('GITHUB_REPOSITORY', '')
+        github_sha = os.getenv('GITHUB_SHA', '')
+
+        source_raw = data.get('source', '')
+        if isinstance(source_raw, dict):
+            target_raw = source_raw.get('target', '')
+            if isinstance(target_raw, dict):
+                source_name = target_raw.get('userInput', 'SBOM scan')
+            else:
+                source_name = str(target_raw) if target_raw else 'SBOM scan'
+        else:
+            source_name = str(source_raw) if source_raw else 'SBOM scan'
+
+        all_packages = []
+        try:
+            with open('sbom.spdx.json') as f:
+                sbom_data = json.load(f)
+            for pkg in sbom_data.get('packages', []):
+                all_packages.append({
+                    'name': pkg.get('name', ''),
+                    'version': pkg.get('versionInfo', '-') or '-',
+                    'license': pkg.get('licenseConcluded', '-') or '-',
+                    'supplier': pkg.get('supplier', '-') or '-',
+                })
+            all_packages.sort(key=lambda package: package['name'].lower())
+            print(f"Loaded {len(all_packages)} packages from SBOM")
+        except Exception as e:
+            print(f"Could not read sbom.spdx.json: {e}")
+
+        dotnet_packages = {}
+        for assets_path in sorted(Path('src').glob('**/obj/project.assets.json')):
+            try:
+                with assets_path.open() as f:
+                    assets_data = json.load(f)
+            except Exception as e:
+                print(f"Could not read {assets_path}: {e}")
+                continue
+
+            project_path = assets_path.parent.parent.as_posix()
+            libraries = assets_data.get('libraries', {}) or {}
+            for library_name, library_info in libraries.items():
+                if (library_info or {}).get('type') != 'package':
+                    continue
+
+                if '/' in library_name:
+                    package_name, package_version = library_name.split('/', 1)
+                else:
+                    package_name, package_version = library_name, '-'
+
+                key = (package_name, package_version)
+                if key not in dotnet_packages:
+                    dotnet_packages[key] = {
+                        'name': package_name,
+                        'version': package_version,
+                        'projects': set(),
+                    }
+                dotnet_packages[key]['projects'].add(project_path)
+
+        dotnet_package_list = sorted(
+            dotnet_packages.values(),
+            key=lambda package: (package['name'].lower(), package['version'])
+        )
+        print(f"Loaded {len(dotnet_package_list)} resolved .NET packages from project assets")
+
+        vuln_pkg_names = set()
+        for match in matches:
+            artifact = match.get('artifact') or {}
+            vuln_pkg_names.add(artifact.get('name', ''))
+
+        sev_order = ['Critical', 'High', 'Medium', 'Low', 'Negligible', 'Unknown']
+        sev_colors = {
+            'Critical': '#9b2226', 'High': '#ae2012', 'Medium': '#ca6702',
+            'Low': '#0a9396', 'Negligible': '#94d2bd', 'Unknown': '#868e96'
+        }
+        counts = {severity: 0 for severity in sev_order}
+        for match in matches:
+            severity = (match.get('vulnerability') or {}).get('severity', 'Unknown')
+            if severity not in counts:
+                severity = 'Unknown'
+            counts[severity] += 1
+
+        def sev_sort_key(match):
+            severity = (match.get('vulnerability') or {}).get('severity', 'Unknown')
+            return sev_order.index(severity) if severity in sev_order else len(sev_order)
+
+        vuln_rows = []
+        for match in sorted(matches, key=sev_sort_key):
+            vuln = match.get('vulnerability') or {}
+            artifact = match.get('artifact') or {}
+            severity = vuln.get('severity', 'Unknown')
+            if severity not in sev_colors:
+                severity = 'Unknown'
+            color = sev_colors[severity]
+            fix_versions = ', '.join((vuln.get('fix') or {}).get('versions', [])) or '-'
+            urls = vuln.get('urls') or []
+            vuln_id = vuln.get('id', '')
+            vuln_link = f'<a href="{urls[0]}" target="_blank" rel="noopener">{html.escape(vuln_id)}</a>' if urls else html.escape(vuln_id)
+            description = (vuln.get('description') or '')[:200]
+            if len(vuln.get('description') or '') > 200:
+                description += '...'
+            vuln_rows.append(
+                f'<tr>'
+                f'<td>{vuln_link}</td>'
+                f'<td>{html.escape(artifact.get("name", ""))}</td>'
+                f'<td>{html.escape(artifact.get("version", ""))}</td>'
+                f'<td>{html.escape(fix_versions)}</td>'
+                f'<td><span class="badge" style="background:{color}">{html.escape(severity)}</span></td>'
+                f'<td class="desc">{html.escape(description)}</td>'
+                f'</tr>'
+            )
+
+        pkg_rows = []
+        for package in all_packages:
+            highlight = ' class="pkg-vuln"' if package['name'] in vuln_pkg_names else ''
+            flag = ' [vulnerable]' if package['name'] in vuln_pkg_names else ''
+            pkg_rows.append(
+                f'<tr{highlight}>'
+                f'<td>{html.escape(package["name"])}{flag}</td>'
+                f'<td>{html.escape(package["version"])}</td>'
+                f'<td>{html.escape(package["license"])}</td>'
+                f'<td class="desc">{html.escape(package["supplier"])}</td>'
+                f'</tr>'
+            )
+        pkg_rows_html = '\n'.join(pkg_rows) if pkg_rows else '<tr><td colspan="4" class="empty">No packages found in SBOM</td></tr>'
+
+        def format_project_links(project_paths):
+            links = []
+            for project_path in sorted(project_paths):
+                project_label = html.escape(project_path)
+                if github_repo and github_sha:
+                    href = f"{github_server.rstrip('/')}/{github_repo}/tree/{github_sha}/{project_path}"
+                    links.append(f'<a href="{html.escape(href)}" target="_blank" rel="noopener">{project_label}</a>')
+                else:
+                    links.append(project_label)
+            return '<br>'.join(links)
+
+        dotnet_rows = []
+        for package in dotnet_package_list:
+            highlight = ' class="pkg-vuln"' if package['name'] in vuln_pkg_names else ''
+            project_list = format_project_links(package['projects'])
+            dotnet_rows.append(
+                f'<tr{highlight}>'
+                f'<td>{html.escape(package["name"])}</td>'
+                f'<td>{html.escape(package["version"])}</td>'
+                f'<td class="desc">{project_list}</td>'
+                f'</tr>'
+            )
+        dotnet_rows_html = '\n'.join(dotnet_rows) if dotnet_rows else '<tr><td colspan="3" class="empty">No resolved .NET packages found. Check that restore completed successfully.</td></tr>'
+
+        summary_headers = ''.join(f'<th>{severity}</th>' for severity in sev_order)
+        summary_cells = ''.join(
+            f'<td style="color:{sev_colors[severity]};font-weight:bold;text-align:center">{counts[severity]}</td>'
+            for severity in sev_order
+        )
+        vuln_rows_html = '\n'.join(vuln_rows) if vuln_rows else '<tr><td colspan="6" class="empty">&#10003; No vulnerabilities found</td></tr>'
+        generated_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+
+        html_report = f"""<!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>SBOM Report</title>
+          <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 24px; background: #f8f9fa; color: #212529; }}
+            h1 {{ margin-bottom: 4px; }}
+            .meta {{ color: #6c757d; font-size: 0.9em; margin-bottom: 24px; }}
+            h2 {{ color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; margin-top: 32px; }}
+            table {{ border-collapse: collapse; width: 100%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.12); border-radius: 6px; overflow: hidden; margin-bottom: 24px; }}
+            th {{ background: #343a40; color: white; padding: 10px 16px; text-align: left; font-weight: 600; }}
+            td {{ padding: 9px 16px; border-bottom: 1px solid #e9ecef; vertical-align: top; }}
+            tr:last-child td {{ border-bottom: none; }}
+            tbody tr:hover td {{ background: #f1f3f5; }}
+            tr.pkg-vuln td {{ background: #fff3cd; }}
+            tr.pkg-vuln:hover td {{ background: #ffe69c; }}
+            .badge {{ color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 700; white-space: nowrap; }}
+            .desc {{ font-size: 0.85em; color: #495057; max-width: 360px; }}
+            .empty {{ text-align: center; padding: 24px; color: #6c757d; }}
+            a {{ color: #0d6efd; text-decoration: none; }}
+            a:hover {{ text-decoration: underline; }}
+          </style>
+        </head>
+        <body>
+          <h1>SBOM Report</h1>
+          <p class="meta">Source: {html.escape(source_name)} &nbsp;|&nbsp; Generated: {generated_at} &nbsp;|&nbsp; SBOM packages: {len(all_packages)} &nbsp;|&nbsp; Resolved .NET packages: {len(dotnet_package_list)} &nbsp;|&nbsp; Vulnerabilities: {len(matches)}</p>
+
+          <h2>Vulnerability Summary by Severity</h2>
+          <table>
+            <thead><tr>{summary_headers}</tr></thead>
+            <tbody><tr>{summary_cells}</tr></tbody>
+          </table>
+
+          <h2>Vulnerability Details ({len(matches)} total)</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>CVE / ID</th><th>Package</th><th>Version</th>
+                <th>Fixed In</th><th>Severity</th><th>Description</th>
+              </tr>
+            </thead>
+            <tbody>{vuln_rows_html}</tbody>
+          </table>
+
+          <h2>Package Inventory ({len(all_packages)} total)</h2>
+          <p class="meta">Packages highlighted in yellow have known vulnerabilities listed above.</p>
+          <table>
+            <thead>
+              <tr><th>Package</th><th>Version</th><th>License</th><th>Supplier</th></tr>
+            </thead>
+            <tbody>{pkg_rows_html}</tbody>
+          </table>
+
+          <h2>.NET Resolved Package Inventory ({len(dotnet_package_list)} total)</h2>
+          <p class="meta">This section is built from restored NuGet asset manifests so you can see the packages your .NET projects actually resolve. Folder links open the exact commit scanned by this workflow.</p>
+          <table>
+            <thead>
+              <tr><th>Package</th><th>Version</th><th>Referenced In Folders</th></tr>
+            </thead>
+            <tbody>{dotnet_rows_html}</tbody>
+          </table>
+        </body>
+        </html>"""
+
+        with open('sbom-report.html', 'w') as f:
+            f.write(html_report)
+        print(f"HTML report generated: {len(matches)} vulnerabilities, {len(all_packages)} SBOM packages, {len(dotnet_package_list)} resolved .NET packages")
+        PYTHON_SCRIPT
+
+    - name: Upload vulnerability reports as artifacts
+      if: always()
+      continue-on-error: true
+      uses: actions/upload-artifact@v7
+      with:
+        name: sbom-report
+        path: |
+          ${{ steps.scan.outputs.sarif }}
+          sbom-report.html
+        retention-days: 90

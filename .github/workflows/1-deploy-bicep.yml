@@ -1,0 +1,84 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# GHA Workflow to deploy Azure Resources Only
+# ------------------------------------------------------------------------------------------------------------------------
+# FYI: You need to set up some secrets before running this workflows - see CreateGitHubSecrets.md for details.
+# ------------------------------------------------------------------------------------------------------------------------
+name: 1.deploy.bicep
+run-name: '1 - Deploy Bicep: ${{ inputs.bicepDeploymentMode }} ${{ inputs.deploymentType }} using ENV ${{ inputs.deployEnvironment }} ${{vars.INSTANCE_NUMBER}} by @${{ github.actor }}'
+
+on: 
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: Environment
+        required: true
+        default: 'dev' 
+        type: environment
+      bicepDeploymentMode:
+        description: Bicep Mode
+        default: create
+        type: choice
+        options:
+          - create
+          - whatIf
+      deploymentType:
+        description: Deployment Type
+        type: choice
+        default: webapp
+        options:
+          - webapp
+          - containerapp
+          - functionapp
+          - all
+      createResourceGroup:
+        description: Create Resource Group?
+        type: boolean
+        default: true
+      runSecurityScan:
+        description: Run Security Scan
+        type: boolean
+        default: false
+      addRoleAssignments:
+        description: Add Role Assignments
+        type: boolean
+        default: true
+
+# ------------------------------------------------------------------------------------------------------------------------
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+  pages: write
+  security-events: write
+  checks: write
+  issues: read
+  pull-requests: read
+  packages: read
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  scan-code:
+    name: Scan Source Code
+    uses: ./.github/workflows/template-scan-code.yml
+    secrets: inherit
+    if: inputs.runSecurityScan
+    with:
+      runMSDevSecOpsScan: ${{ inputs.runSecurityScan }}
+      runGHASScan: false
+
+# ------------------------------------------------------------------------------------------------------------------------
+  Deploy_Bicep:
+    name: Deploy ${{ inputs.deployEnvironment }} Bicep (${{ inputs.bicepDeploymentMode }})
+    uses: ./.github/workflows/template-bicep-deploy.yml
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      templatePath: './infra/Bicep/'
+      templateFile: 'main.bicep'
+      parameterFile: 'main.bicepparam'
+      parameterFileReplaceTokens: 'true'
+      deploymentType: ${{ inputs.deploymentType }}
+      requestorName: ${{ github.actor }}
+      createResourceGroup: ${{ inputs.createResourceGroup }}
+      bicepDeploymentMode: ${{ inputs.bicepDeploymentMode }}
+      addRoleAssignments: ${{ inputs.addRoleAssignments }}

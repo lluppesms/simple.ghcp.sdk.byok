@@ -1,0 +1,30 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# GHA Workflow to run the smoke tests only
+# ------------------------------------------------------------------------------------------------------------------------
+# FYI: You need to set up some secrets before running this workflow - see CreateGitHubSecrets.md for details.
+# ------------------------------------------------------------------------------------------------------------------------
+name: 8.smoke.test
+run-name: '8. Smoke Test by @${{ github.actor }} using ENV ${{ inputs.deployEnvironment }} '
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: Environment
+        required: true
+        default: 'dev' 
+        type: environment
+  # schedule:
+  #   # Run daily at 6:00 AM UTC (1:00 AM CST)
+  #   - cron: '0 6 * * *'
+    
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  run-smoke-test:
+    name: Smoke Test ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-smoke-test.yml
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      testPath: 'playwright/ui-tests'
+      testType: 'ui'

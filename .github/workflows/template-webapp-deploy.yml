@@ -1,0 +1,62 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# GHA Reusable Called Workflow to deploy an already built WebApp
+# ------------------------------------------------------------------------------------------------------------------------
+# You need to set up secrets in the GitHub Secrets Repository before running these workflows.
+#   See readme.md for details
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_webapp_deploy
+run-name: Deploy WebApp
+on:
+  workflow_call:
+    inputs:
+      envCode:
+        required: true
+        type: string
+      listFilesBeforeDeploy:
+        required: false
+        type: boolean
+        default: true
+  
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.envCode }}
+
+    env:
+      artifactName: webapp
+      generatedAppEnvName: "${{ inputs.envCode == 'prod' && format('{0}', vars.APP_NAME) || format('{0}{1}-{2}', vars.APP_NAME, vars.INSTANCE_NUMBER, inputs.envCode) }}"
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ env.artifactName }}
+
+    - name: List Files Before Deploy
+      if: inputs.listFilesBeforeDeploy == true
+      run: 
+        tree ${{ github.action_path }}
+      continue-on-error: true
+  
+    - name: Login to Azure using OIDC
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy WebApp Zip
+      uses: Azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.generatedAppEnvName }}
+        package: '.'
+
+    - name: Logout and cleanup
+      shell: bash
+      run: |
+        az logout
+        az cache purge
+        az account clear

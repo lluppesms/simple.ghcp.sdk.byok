@@ -1,0 +1,116 @@
+@page "/"
+@inject GHCP_SDK_Service DemoService
+
+<PageTitle>Managed Identity Demo</PageTitle>
+
+<div class="header">
+    <div>
+        <h1>GHCP SDK - Managed Identity Demo</h1>
+        <p class="subtitle">A single-page Blazor view of token flow, cache events, and a GitHub Copilot response.</p>
+    </div>
+    <button class="run-button" @onclick="RunAsync" disabled="@_isRunning">
+        @(_isRunning ? "Running…" : _result is null ? "Run" : "Run Again")
+    </button>
+</div>
+
+@if (_isRunning)
+{
+    <div class="status-panel">
+        <span class="spinner"></span>
+        <span>Calling model <strong>@DemoService.ModelName</strong> on <strong>@DemoService.FoundryUrl</strong> with prompt: <strong>"@DemoService.Prompt"</strong>…</span>
+    </div>
+}
+
+@if (_result is not null)
+{
+    <div class="status-panel @(string.IsNullOrEmpty(_result.Error) ? "status-done" : "status-failed")">
+        <span class="status-icon">@(string.IsNullOrEmpty(_result.Error) ? "✓" : "✕")</span>
+        <span>
+            @(string.IsNullOrEmpty(_result.Error) ? "Finished calling" : "Failed calling")
+            model <strong>@DemoService.ModelName</strong> on
+            <strong>@DemoService.FoundryUrl</strong> with prompt: <strong>"@DemoService.Prompt"</strong>
+            in <strong>@FormatElapsed(_result.Elapsed)</strong>.
+        </span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_result.Error))
+    {
+        <div class="error-panel">
+            <span class="error-label">Error</span>
+            <span>@_result.Error</span>
+        </div>
+    }
+
+    <div class="card-grid">
+        <div class="card">
+            <span class="card-label">Current Time</span>
+            <span class="card-value">@_result.CurrentServerTime</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Response</span>
+            <span class="card-value">@_result.Response</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Token Expires On</span>
+            <span class="card-value">@_result.TokenExpiresOn</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Token Refresh On</span>
+            <span class="card-value">@_result.TokenRefreshOn</span>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">Azure Identity SDK Events (Cache)</div>
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th class="col-name">Event Name</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < _result.Events.Count; i++)
+                {
+                    <tr>
+                        <td class="event-name">@(i + 1). @_result.Events[i].EventName</td>
+                        <td class="event-message">@_result.Events[i].Message</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (_result.Events.Count == 0)
+        {
+            <p class="empty">No events were captured during this run.</p>
+        }
+    </div>
+}
+else if (!_isRunning)
+{
+    <div class="panel empty-state">
+        Click <strong>Run</strong> to acquire a token and call the model.
+    </div>
+}
+
+@code {
+    private DemoRunResult? _result;
+    private bool _isRunning;
+
+    private async Task RunAsync()
+    {
+        _isRunning = true;
+        try
+        {
+            _result = await DemoService.RunAsync();
+        }
+        finally
+        {
+            _isRunning = false;
+        }
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed) =>
+        elapsed.TotalSeconds < 1
+            ? $"{elapsed.TotalMilliseconds:N0} ms"
+            : $"{elapsed.TotalSeconds:N2} s";
+}

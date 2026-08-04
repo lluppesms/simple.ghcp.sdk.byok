@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- registry.npmjs.org is not reachable from the Microsoft network - packages should be pulled from the Microsoft mirror.
+         This file is used by dotnet build projects, and the setting in the .npmrc is used by npm commands. -->
+    <CopilotNpmRegistryUrl>https://packagefeedproxy.microsoft.io/npm/</CopilotNpmRegistryUrl>
+  </PropertyGroup>
+</Project>

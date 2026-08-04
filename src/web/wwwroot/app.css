@@ -1,0 +1,245 @@
+:root {
+    --bg: #ffffff;
+    --text: #1f2328;
+    --muted: #656d76;
+    --border: #d8dee4;
+    --panel-bg: #ffffff;
+    --panel-alt: #f6f8fa;
+    --accent: #1a7f5a;
+    --accent-hover: #15684a;
+    --link: #0969da;
+    --danger: #cf222e;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    margin: 0.5rem 0 0;
+    color: var(--muted);
+    max-width: 34rem;
+}
+
+.run-button {
+    flex-shrink: 0;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.7rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.run-button:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.run-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    background: var(--panel-bg);
+}
+
+.card-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.card-value {
+    font-size: 1rem;
+    word-break: break-word;
+}
+
+.panel {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--panel-bg);
+}
+
+.panel-header {
+    padding: 1rem 1.1rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.events-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.events-table th,
+.events-table td {
+    text-align: left;
+    padding: 0.85rem 1.1rem;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.events-table thead th {
+    background: var(--panel-alt);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.events-table tbody tr:nth-child(even) {
+    background: var(--panel-alt);
+}
+
+.col-name {
+    width: 12rem;
+}
+
+.event-name {
+    font-weight: 600;
+    color: var(--link);
+}
+
+.event-message {
+    color: var(--link);
+    font-size: 0.9rem;
+    word-break: break-word;
+}
+
+.empty,
+.empty-state {
+    padding: 1.5rem 1.1rem;
+    color: var(--muted);
+    margin: 0;
+}
+
+.error-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    border: 1px solid var(--danger);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.5rem;
+    color: var(--danger);
+}
+
+.status-panel {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.5rem;
+    background: var(--panel-alt);
+    color: var(--muted);
+}
+
+.spinner {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.status-done {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.status-failed {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.status-icon {
+    flex-shrink: 0;
+    font-weight: 700;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.error-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+    .header {
+        flex-direction: column;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    .col-name {
+        width: 8rem;
+    }
+}

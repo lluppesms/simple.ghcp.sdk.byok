@@ -1,0 +1,203 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# GHA Reusable Called Workflow to build a Web App
+# ------------------------------------------------------------------------------------------------------------------------
+# You need to set up secrets in the GitHub Secrets Repository before running these workflows.
+#   See readme.md for details
+# ------------------------------------------------------------------------------------------------------------------------
+# You may also need to updates permissions for this template to work - see note below
+# ------------------------------------------------------------------------------------------------------------------------
+name: z_template_webapp_build
+run-name: Build WebApp
+on:
+  workflow_call:
+    inputs:
+      envCode:
+        required: true
+        type: string
+      rootDirectory:
+        required: true
+        type: string
+      projectName:
+        required: true
+        type: string
+      testDirectory:
+        required: false
+        type: string
+      testProjectName:
+        required: false
+        type: string
+      listFilesAfterBuild:
+        required: false
+        type: boolean
+        default: false
+      testApplication:
+        required: false
+        type: boolean
+        default: false
+  
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  build:
+    name: Build
+    # Note: Publish test results action only works on Linux build servers...
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.envCode }}
+    env:
+      CONFIGURATION: Release
+      DOTNET_CORE_VERSION: 10.0.x
+      artifactName: webapp
+      AZURE_WEBAPP_PACKAGE_PATH: ./output
+
+    # Note: Publish test results action needs permission to write a check
+    # You may have to change the default settings for the repo for this to work. You may get the error:
+    #   The nested job 'Build' is requesting 'checks: write, issues: read, pull-requests: read', but is only allowed 'checks: none, issues: none, pull-requests: none'.
+    # Go to Repo Settings -> Actions -> General -> Workflow permissions -> Check: Read and Write Permissions
+    # The Comment on PR needs to permissions to update issues and pull requests
+    permissions:
+      contents: write
+      issues: write
+      checks: write
+      pull-requests: write
+
+    # ------------------------------------------------------------------------------------------------------------------------
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+
+    - name: Display Variables
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+        JOB_CONTEXT: ${{ toJson(job) }}
+      run: |-
+        echo "inputs.rootDirectory=${{ inputs.rootDirectory }}"
+        echo "projectName=${{ inputs.projectName }}"
+        echo "testDirectory=${{ inputs.testDirectory }}"
+        echo "testProjectName=${{ inputs.testProjectName }}"
+        echo "listFilesAfterBuild=${{ inputs.listFilesAfterBuild }}"
+        echo "testApplication=${{ inputs.testApplication }}"
+        echo "GITHUB_CONTEXT=$GITHUB_CONTEXT"
+        echo "JOB_CONTEXT=$JOB_CONTEXT"
+
+        echo "---------------------------------"
+        echo "##[group]All Variables:"
+        echo "${{ toJSON(env) }}"
+        echo "${{ toJSON(vars) }}"
+        echo "##[endgroup]"
+        echo "---------------------------------"
+        echo "##[group]Directory of ${{ github.workspace  }}"
+        tree -R ${{ github.workspace  }}
+        echo "##[endgroup]"
+      continue-on-error: true
+
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+
+    - name: Restore Dependencies
+      run: dotnet restore "${{ inputs.rootDirectory }}"
+
+    - name: Create Runtime Variables
+      id: vars
+      shell: bash
+      run: |
+        readonly rundatetime=$(date +'%Y-%m-%dT%H:%M:%SZ')
+        echo "rundatetime=$rundatetime" >> $GITHUB_OUTPUT
+        readonly rundate=$(date +'%Y.%m.%d')
+        echo "rundate=$rundate" >> $GITHUB_OUTPUT
+        readonly commitbranch=$(echo ${GITHUB_REF#refs/heads/})
+        echo "commitbranch=$commitbranch" >> $GITHUB_OUTPUT
+        readonly commitsha=${GITHUB_SHA::6}
+        echo "commitsha=$commitsha" >> $GITHUB_OUTPUT
+      continue-on-error: true
+
+    - name: Put Build Details in buildinfo.json
+      shell: bash
+      continue-on-error: true
+      run: |
+        echo -e -n "{\"buildDate\":\"${{ steps.vars.outputs.rundatetime }}\",\"buildNumber\":\"${{ steps.vars.outputs.rundate }}.${{ github.run_number }}\",\"buildId\":\"${{ github.run_id }}.${{ github.run_attempt }}\",\"run_id\":\"${{ github.run_id }}\",\"run_attempt\":\"${{ github.run_attempt }}\",\"run_number\":\"${{ github.run_number }}\",\"branchName\":\"${{ steps.vars.outputs.commitbranch }}\",\"commitHash\":\"${{ steps.vars.outputs.commitsha }}\"}" > ${{ inputs.rootDirectory }}/wwwroot/buildinfo.json
+        echo "Contents of buildinfo.json:"
+        cat ${{ inputs.rootDirectory }}/wwwroot/buildinfo.json
+
+    - name: Build Application
+      run: dotnet build "${{ inputs.rootDirectory }}/${{ inputs.projectName }}.csproj" --configuration Release --no-restore
+
+    - name: Test Application
+      if: inputs.testApplication == true
+      run: dotnet test "${{ inputs.testDirectory }}/${{ inputs.testProjectName }}.csproj" --logger trx --collect:"XPlat Code Coverage" --settings "${{ inputs.testDirectory }}/coverage.runsettings" --results-directory TestResults
+      continue-on-error: true
+      env:
+        COVERLET_OUTPUT_FORMATS: cobertura
+        COVERLET_OUTPUT: TestResults/coverage/
+        DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+    - name: Generate coverage summary
+      if: inputs.testApplication == true
+      uses: danielpalme/ReportGenerator-GitHub-Action@5.3.10
+      with:
+        reports: 'TestResults/**/coverage.cobertura.xml'
+        targetdir: 'coverage-report'
+        reporttypes: 'JsonSummary'
+      continue-on-error: true
+
+    - name: Create Markdown coverage table
+      if: inputs.testApplication == true
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      with:
+        filename: TestResults/**/coverage.cobertura.xml
+        badge: true
+        format: 'markdown'
+        output: 'both'
+      continue-on-error: true
+
+    - name: Upload coverage report artifact
+      if: inputs.testApplication == true
+      uses: actions/upload-artifact@v7
+      with:
+        name: coverage-report
+        path: coverage-report
+        retention-days: 14
+      continue-on-error: true
+
+    - name: Comment coverage on PR
+      if: inputs.testApplication == true && github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        recreate: true
+        path: code-coverage-results.md
+      continue-on-error: true
+
+    - name: Append coverage to run summary
+      if: inputs.testApplication == true
+      run: |
+        echo "### Code Coverage" >> "$GITHUB_STEP_SUMMARY"
+        cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+      continue-on-error: true
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: inputs.testApplication == true
+      with:
+        files: |
+          **/TestResults/**/*.trx
+      continue-on-error: true
+
+    - name: Publish
+      run: dotnet publish "${{ inputs.rootDirectory }}/${{ inputs.projectName }}.csproj" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+
+    - name: Save Publish Artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ env.artifactName }}
+        path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        include-hidden-files: true
+
+    - name: List All Files After (PowerShell)
+      if: inputs.listFilesAfterBuild == true
+      shell: pwsh
+      run: |
+        Write-Host "Listing file details (recursive) under: src"
+        Get-ChildItem -Path src -Recurse -Force -File
+      continue-on-error: true

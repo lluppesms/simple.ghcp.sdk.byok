@@ -1,0 +1,145 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# GHA Workflow to deploy Azure Resources and WebApp
+# ------------------------------------------------------------------------------------------------------------------------
+# FYI: You need to set up some secrets before running this workflows - see CreateGitHubSecrets.md for details.
+# ------------------------------------------------------------------------------------------------------------------------
+name: 2.1.bicep.build.deploy.webapp
+run-name: '2.1 - Deploy Bicep/Build & Deploy Web App: ${{ inputs.bicepDeploymentMode }} using ENV ${{ inputs.deployEnvironment }} ${{vars.INSTANCE_NUMBER}} by @${{ github.actor }}'
+
+on: 
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: Environment
+        default: 'dev' 
+        type: environment
+      createResourceGroup:
+        description: Create Resource Group?
+        type: boolean
+        default: true
+      runCreateInfra:
+        description: Deploy Bicep
+        default: true
+        type: boolean
+      bicepDeploymentMode:
+        description: Bicep Mode
+        default: create
+        type: choice
+        options:
+          - create
+          - whatIf
+      runBuild:
+        description: Build Web App
+        default: true
+        type: boolean
+      runDeploy:
+        description: Deploy Web App
+        default: true
+        type: boolean
+      runSecurityScan:
+        description: Run Security Scan
+        default: false
+        type: boolean
+      runSmokeTest:
+        description: Run Smoke Tests
+        default: false
+        type: boolean
+      addRoleAssignments:
+        description: Add Role Assignments
+        type: boolean
+        default: true
+      logLevel:
+        description: Log level
+        required: false
+        default: 'warning' 
+        type: choice
+        options:
+          - info
+          - warning
+          - debug 
+
+# ------------------------------------------------------------------------------------------------------------------------
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+  pages: write
+  security-events: write
+  checks: write
+  issues: write
+  pull-requests: write
+  packages: read
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  # ------------------------------------------------------------------------------------------------------------------------
+  load-config:
+    name: Load Project Config
+    uses: ./.github/workflows/template-load-config.yml
+    secrets: inherit
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  scan-code:
+    name: Scan Source Code
+    uses: ./.github/workflows/template-scan-code.yml
+    secrets: inherit
+    if: inputs.runSecurityScan
+    with:
+      runMSDevSecOpsScan: ${{ inputs.runSecurityScan }}
+      runGHASScan: ${{ inputs.runSecurityScan }}
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  create-infra:
+    name: Create Infra ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-bicep-deploy.yml
+    secrets: inherit
+    with:
+      runCreateInfra: ${{ inputs.runCreateInfra }}
+      envCode: ${{ inputs.deployEnvironment }}
+      templatePath: './infra/Bicep/'
+      templateFile: 'main.bicep'
+      parameterFile: 'main.bicepparam'
+      parameterFileReplaceTokens: 'true'
+      deploymentType: 'webapp'
+      requestorName: ${{ github.actor }}
+      createResourceGroup: ${{ inputs.createResourceGroup }}
+      bicepDeploymentMode: ${{ inputs.bicepDeploymentMode }}
+      addRoleAssignments: ${{ inputs.addRoleAssignments }}
+
+# ------------------------------------------------------------------------------------------------------------------------
+  build-web-app:
+    name: Build WebApp
+    uses: ./.github/workflows/template-webapp-build.yml
+    if: inputs.runBuild || inputs.runDeploy
+    needs: [load-config, create-infra]
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      rootDirectory: '${{ needs.load-config.outputs.web_rootDirectory }}'
+      projectName: '${{ needs.load-config.outputs.web_projectName }}'
+      testDirectory: '${{ needs.load-config.outputs.web_testDirectory }}'
+      testProjectName: '${{ needs.load-config.outputs.web_testProjectName }}'
+      testApplication: true
+      listFilesAfterBuild: true
+
+# ------------------------------------------------------------------------------------------------------------------------
+  deploy-web-app:
+    name: Deploy WebApp ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-webapp-deploy.yml
+    if: inputs.runDeploy
+    needs: build-web-app
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+
+# ------------------------------------------------------------------------------------------------------------------------
+  run-smoke-test:
+    name: Smoke Test ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-smoke-test.yml
+    if: inputs.runSmokeTest
+    needs: deploy-web-app
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      testPath: 'playwright/ui-tests'
+      testType: 'ui'
