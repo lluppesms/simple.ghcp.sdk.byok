@@ -62,16 +62,6 @@ on:
         required: false
         type: boolean
         default: true
-      foundryResourceUrl:
-        description: Foundry endpoint URL
-        required: false
-        type: string
-        default: ''
-      modelName:
-        description: Foundry model name
-        required: false
-        type: string
-        default: ''
 
 # ------------------------------------------------------------------------------------------------------------------------
 jobs:
@@ -98,8 +88,8 @@ jobs:
       requestorName: ${{ inputs.requestorName }}
       ADD_ROLE_ASSIGNMENTS: ${{ inputs.addRoleAssignments }}
       CREATE_USER_ASSIGNED_IDENTITY: ${{ inputs.createUserAssignedIdentity }}
-      FOUNDRY_RESOURCE_URL: ${{ inputs.foundryResourceUrl }}
-      MODEL_NAME: ${{ inputs.modelName }}
+      FOUNDRY_RESOURCE_URL: ${{ vars.FOUNDRY_RESOURCE_URL }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
 
     # ------------------------------------------------------------------------------------------------------------------------
     # Outputs
@@ -279,8 +269,8 @@ jobs:
       env:
         SUMMARY: |
           ## Runtime AI configuration
-          - Foundry URL: ${{ inputs.foundryResourceUrl || '(not provided)' }}
-          - Model name: ${{ inputs.modelName || '(not provided)' }}
+          - Foundry URL: ${{ vars.FOUNDRY_RESOURCE_URL || '(not provided)' }}
+          - Model name: ${{ vars.MODEL_NAME || '(not provided)' }}
           - User-assigned identity enabled: ${{ inputs.createUserAssignedIdentity }}
       run: echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
       continue-on-error: true

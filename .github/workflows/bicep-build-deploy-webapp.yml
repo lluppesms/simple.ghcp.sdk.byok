@@ -3,8 +3,8 @@
 # ------------------------------------------------------------------------------------------------------------------------
 # FYI: You need to set up some secrets before running this workflows - see CreateGitHubSecrets.md for details.
 # ------------------------------------------------------------------------------------------------------------------------
-name: 2.1.bicep.build.deploy.webapp
-run-name: '2.1 - Deploy Bicep/Build & Deploy Web App: ${{ inputs.bicepDeploymentMode }} using ENV ${{ inputs.deployEnvironment }} ${{vars.INSTANCE_NUMBER}} by @${{ github.actor }}'
+name: bicep.build.deploy.webapp
+run-name: 'Deploy Bicep/Build & Deploy Web App: ${{ inputs.bicepDeploymentMode }} using ENV ${{ inputs.deployEnvironment }} ${{vars.INSTANCE_NUMBER}} by @${{ github.actor }}'
 
 on: 
   workflow_dispatch:
@@ -28,14 +28,6 @@ on:
         options:
           - create
           - whatIf
-      foundryResourceUrl:
-        description: Foundry endpoint URL (for Azure:FoundryResourceUrl)
-        required: true
-        type: string
-      modelName:
-        description: Model name (for Azure:ModelName)
-        required: true
-        type: string
       runBuild:
         description: Build Web App
         default: true
@@ -81,12 +73,6 @@ permissions:
 # ------------------------------------------------------------------------------------------------------------------------
 jobs:
   # ------------------------------------------------------------------------------------------------------------------------
-  load-config:
-    name: Load Project Config
-    uses: ./.github/workflows/template-load-config.yml
-    secrets: inherit
-
-  # ------------------------------------------------------------------------------------------------------------------------
   scan-code:
     name: Scan Source Code
     uses: ./.github/workflows/template-scan-code.yml
@@ -113,24 +99,19 @@ jobs:
       createResourceGroup: ${{ inputs.createResourceGroup }}
       bicepDeploymentMode: ${{ inputs.bicepDeploymentMode }}
       addRoleAssignments: ${{ inputs.addRoleAssignments }}
-      createUserAssignedIdentity: true
-      foundryResourceUrl: ${{ inputs.foundryResourceUrl }}
-      modelName: ${{ inputs.modelName }}
 
 # ------------------------------------------------------------------------------------------------------------------------
   build-web-app:
     name: Build WebApp
     uses: ./.github/workflows/template-webapp-build.yml
     if: inputs.runBuild || inputs.runDeploy
-    needs: [load-config, create-infra]
+    needs: create-infra
     secrets: inherit
     with:
       envCode: ${{ inputs.deployEnvironment }}
-      rootDirectory: '${{ needs.load-config.outputs.web_rootDirectory }}'
-      projectName: '${{ needs.load-config.outputs.web_projectName }}'
-      testDirectory: '${{ needs.load-config.outputs.web_testDirectory }}'
-      testProjectName: '${{ needs.load-config.outputs.web_testProjectName }}'
-      testApplication: true
+      rootDirectory: 'src/web'
+      projectName: 'ManagedIdentity'
+      testApplication: false
       listFilesAfterBuild: true
 
 # ------------------------------------------------------------------------------------------------------------------------
