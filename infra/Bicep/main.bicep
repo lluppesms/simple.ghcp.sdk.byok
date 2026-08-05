@@ -24,6 +24,7 @@ param existingLogAnalyticsWorkspaceName string = ''
 param existingLogAnalyticsWorkspaceResourceGroupName string = ''
 
 param azureFoundryResourceUrl string = ''
+param azureEntraTenantId string = ''
 param azureModelName string = ''
 
 @description('Add Role Assignments for the user assigned identity?')
@@ -71,29 +72,29 @@ module resourceNames 'resourcenames.bicep' = {
   }
 }
 
-// --------------------------------------------------------------------------------
-module logAnalyticsWorkspaceModule './modules/monitor/loganalyticsworkspace.bicep' = {
-  name: 'logAnalytics${deploymentSuffix}'
-  params: {
-    logAnalyticsWorkspaceName: resourceNames.outputs.logAnalyticsWorkspaceName
-    existingLogAnalyticsWorkspaceName: existingLogAnalyticsWorkspaceNameEffective
-    existingLogAnalyticsWorkspaceResourceGroupName: existingLogAnalyticsWorkspaceRgNameEffective
-    location: location
-    commonTags: commonTags
-  }
-}
+// // --------------------------------------------------------------------------------
+// module logAnalyticsWorkspaceModule './modules/monitor/loganalyticsworkspace.bicep' = {
+//   name: 'logAnalytics${deploymentSuffix}'
+//   params: {
+//     logAnalyticsWorkspaceName: resourceNames.outputs.logAnalyticsWorkspaceName
+//     existingLogAnalyticsWorkspaceName: existingLogAnalyticsWorkspaceNameEffective
+//     existingLogAnalyticsWorkspaceResourceGroupName: existingLogAnalyticsWorkspaceRgNameEffective
+//     location: location
+//     commonTags: commonTags
+//   }
+// }
 
-// --------------------------------------------------------------------------------
-module storageModule './modules/storage/storageaccount.bicep' = {
-  name: 'storage${deploymentSuffix}'
-  params: {
-    storageSku: webStorageSku
-    storageAccountName: resourceNames.outputs.storageAccountName
-    location: location
-    commonTags: commonTags
-    containerNames: ['input', 'output', 'backup-data', 'joke-images']
-  }
-}
+// // --------------------------------------------------------------------------------
+// module storageModule './modules/storage/storageaccount.bicep' = {
+//   name: 'storage${deploymentSuffix}'
+//   params: {
+//     storageSku: webStorageSku
+//     storageAccountName: resourceNames.outputs.storageAccountName
+//     location: location
+//     commonTags: commonTags
+//     containerNames: ['input', 'output', 'backup-data', 'joke-images']
+//   }
+// }
 
 // --------------------------------------------------------------------------------
 module identity './modules/iam/identity.bicep' = if (createUserAssignedIdentity) {
@@ -109,8 +110,8 @@ module appRoleAssignments './modules/iam/roleassignments.bicep' = if (addRoleAss
   params: {
     identityPrincipalId: identity!.outputs.managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
-    storageAccountName: storageModule.outputs.name
-    keyVaultName:  keyVaultModule.outputs.name
+    storageAccountName: '' // storageModule.outputs.name
+    keyVaultName:  '' // keyVaultModule.outputs.name
   }
 }
 // also add rights to the web app storage account (App Service only)
@@ -119,27 +120,27 @@ module appRoleAssignments2 './modules/iam/roleassignments.bicep' = if (addRoleAs
   params: {
     identityPrincipalId: webSiteModule!.outputs.systemPrincipalId
     principalType: 'ServicePrincipal'
-    storageAccountName: storageModule.outputs.name
-    keyVaultName: keyVaultModule.outputs.name
+    storageAccountName: '' // storageModule.outputs.name
+    keyVaultName: '' // keyVaultModule.outputs.name
   }
 }
 
-// --------------------------------------------------------------------------------
-module keyVaultModule './modules/security/keyvault.bicep' = {
-  name: 'keyVault${deploymentSuffix}'
-  params: {
-    keyVaultName: resourceNames.outputs.keyVaultName
-    location: location
-    commonTags: commonTags
-    keyVaultOwnerUserId: adminUserId
-    adminUserObjectIds: createUserAssignedIdentity ? [ identity!.outputs.managedIdentityPrincipalId ] : []
-    applicationUserObjectIds: keyVaultApplicationUserObjectIds
-    workspaceId: logAnalyticsWorkspaceModule.outputs.id
-    publicNetworkAccess: 'Enabled'
-    allowNetworkAccess: 'Allow'
-    useRBAC: true
-  }
-}
+// // --------------------------------------------------------------------------------
+// module keyVaultModule './modules/security/keyvault.bicep' = {
+//   name: 'keyVault${deploymentSuffix}'
+//   params: {
+//     keyVaultName: resourceNames.outputs.keyVaultName
+//     location: location
+//     commonTags: commonTags
+//     keyVaultOwnerUserId: adminUserId
+//     adminUserObjectIds: createUserAssignedIdentity ? [ identity!.outputs.managedIdentityPrincipalId ] : []
+//     applicationUserObjectIds: keyVaultApplicationUserObjectIds
+//     workspaceId: logAnalyticsWorkspaceModule.outputs.id
+//     publicNetworkAccess: 'Enabled'
+//     allowNetworkAccess: 'Allow'
+//     useRBAC: true
+//   }
+// }
 
 // --------------------------------------------------------------------------------
 // App Service Infrastructure (deployed when deploymentType is webapp/appservice alias or all)
@@ -168,7 +169,7 @@ module webSiteModule './modules/webapp/website.bicep' = if (deployWebAppEffectiv
     webAppKind: webAppKind
     managedIdentityId: effectiveManagedIdentityId
     managedIdentityPrincipalId: effectiveManagedIdentityPrincipalId
-    workspaceId: logAnalyticsWorkspaceModule.outputs.id
+    workspaceId: '' // logAnalyticsWorkspaceModule.outputs.id
     appServicePlanName: appServicePlanModule!.outputs.name
     appServicePlanResourceGroupName: appServicePlanModule!.outputs.resourceGroupName
     // In a Linux app service, any nested JSON app key like AppSettings:MyKey needs to be 
@@ -177,6 +178,8 @@ module webSiteModule './modules/webapp/website.bicep' = if (deployWebAppEffectiv
     // NOTE: See https://learn.microsoft.com/en-us/azure/app-service/configure-common?tabs=portal
     customAppSettings: {
       AZURE_CLIENT_ID: effectiveManagedIdentityClientId
+      AZURE_TOKEN_CREDENTIALS: 'ManagedIdentityCredential'
+      Azure__EntraTenantId: azureEntraTenantId
       Azure__FoundryResourceUrl: azureFoundryResourceUrl
       Azure__ModelName: azureModelName
       Azure__TokenScope: 'https://ai.azure.com/.default'
@@ -190,4 +193,3 @@ output DEPLOYMENT_TYPE string = deploymentTypeNormalized
 output WEB_HOST_NAME string = deployWebAppEffective ? webSiteModule!.outputs.hostName : ''
 output WEB_URL string = deployWebAppEffective ? 'https://${webSiteModule!.outputs.hostName}' : ''
 output USER_ASSIGNED_IDENTITY_CLIENT_ID string = effectiveManagedIdentityClientId
-

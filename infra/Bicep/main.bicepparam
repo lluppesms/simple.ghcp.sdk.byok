@@ -21,3 +21,4 @@ param existingLogAnalyticsWorkspaceResourceGroupName = '#{EXISTING_LOG_ANALYTICS
 
 param azureFoundryResourceUrl = '#{FOUNDRY_RESOURCE_URL}#'
 param azureModelName = '#{MODEL_NAME}#'
+param azureEntraTenantId = '#{ENTRA_TENANT_ID}#'

@@ -16,15 +16,16 @@ gh secret set --env dev AZURE_CLIENT_ID -b '<app-registration-client-id>'
 gh secret set --env dev AZURE_TENANT_ID -b '<tenant-guid>'
 gh secret set --env dev AZURE_SUBSCRIPTION_ID -b '<subscription-guid>'
 
-# Repository or environment variables used by to name resources
+# Repository (or environment) variables used by to name resources
 gh variable set APP_NAME -b 'ghcp-sdk-byok'
 gh variable set RESOURCE_GROUP_LOCATION -b 'centralus'
 gh variable set RESOURCE_GROUP_PREFIX -b 'rg-ghcp-sdk-byok'
 gh variable set INSTANCE_NUMBER -b '1'
 
 # Foundry Name and model name
-gh variable set FOUNDRY_RESOURCE_URL -b 'https://your-foundry-resource.services.ai.azure.com'
-gh variable set MODEL_NAME -b 'gpt-5.6-luna'
+gh variable set --env dev FOUNDRY_RESOURCE_URL -b 'https://your-foundry-resource.services.ai.azure.com'
+gh variable set --env dev MODEL_NAME -b 'gpt-5.6-luna'
+gh variable set --env dev ENTRA_TENANT_ID -b '<GUID>'
 ```
 
 ## 2) Optional values (set only if you use them)
