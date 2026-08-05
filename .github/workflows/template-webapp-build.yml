@@ -46,6 +46,7 @@ jobs:
     env:
       CONFIGURATION: Release
       DOTNET_CORE_VERSION: 10.0.x
+      TARGET_RUNTIME: linux-x64
       artifactName: webapp
       AZURE_WEBAPP_PACKAGE_PATH: ./output
 
@@ -185,7 +186,19 @@ jobs:
       continue-on-error: true
 
     - name: Publish
-      run: dotnet publish "${{ inputs.rootDirectory }}/${{ inputs.projectName }}.csproj" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+      run: dotnet publish "${{ inputs.rootDirectory }}/${{ inputs.projectName }}.csproj" --configuration ${{ env.CONFIGURATION }} --runtime ${{ env.TARGET_RUNTIME }} --self-contained false --no-restore --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+
+    - name: Verify Copilot runtime asset
+      shell: bash
+      run: |
+        COPILOT_RUNTIME_PATH="${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/runtimes/${{ env.TARGET_RUNTIME }}/native/copilot"
+        if [ ! -f "$COPILOT_RUNTIME_PATH" ]; then
+          echo "ERROR: Copilot runtime was not found at $COPILOT_RUNTIME_PATH"
+          echo "Published output files:"
+          find "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}" -maxdepth 5 -type f | sort
+          exit 1
+        fi
+        echo "Found Copilot runtime asset at $COPILOT_RUNTIME_PATH"
 
     - name: Save Publish Artifacts
       uses: actions/upload-artifact@v7
