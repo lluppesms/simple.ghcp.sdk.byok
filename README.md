@@ -115,6 +115,7 @@ The [bicep-build-deploy-webapp.yml](./.github/workflows/bicep-build-deploy-webap
 
 ### TL/DR - get the GitHub Action running
 1. [Set up a federated credential](./.github/CreateGitHubSecrets.md) for this repo
+1. Create a `dev` environment in this repo
 1. Create these variables in this repo:
    ```bash
    # Environment secrets used to log into Azure for deploy
