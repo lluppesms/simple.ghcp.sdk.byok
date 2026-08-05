@@ -1,21 +1,10 @@
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using Azure.Core;
-using Azure.Core.Diagnostics;
-using Azure.Identity;
-using GitHub.Copilot;
-using ManagedIdentity.Models;
-
 namespace ManagedIdentity.Services;
 
 public class GHCP_SDK_Service
 {
-    private static readonly TimeZoneInfo CentralTimeZoneInfo =
-        TimeZoneInfo.FindSystemTimeZoneById(
-            OperatingSystem.IsWindows() ? "Central Standard Time" : "America/Chicago");
-
     private readonly IConfiguration _configuration;
     private readonly DefaultAzureCredential _credential;
+    private readonly ILogger<GHCP_SDK_Service> _logger;
 
     public string ModelName => _configuration["Azure:ModelName"] ?? "gpt-5.6-luna";
 
@@ -23,9 +12,10 @@ public class GHCP_SDK_Service
 
     public string Prompt => _configuration["Demo:Prompt"] ?? "What is 2 + 2?";
 
-    public GHCP_SDK_Service(IConfiguration configuration)
+    public GHCP_SDK_Service(IConfiguration configuration, ILogger<GHCP_SDK_Service> logger)
     {
         _configuration = configuration;
+        _logger = logger;
 
         // Which credential is used comes from AZURE_TOKEN_CREDENTIALS (AzureCliCredential locally,
         // ManagedIdentityCredential in Azure) and AZURE_CLIENT_ID selects the user-assigned identity.
@@ -44,10 +34,7 @@ public class GHCP_SDK_Service
             events.Add(new AzureIdentityEvent(eventArgs.EventName ?? "Unknown", message));
         }, level: EventLevel.Informational);
 
-        DateTimeOffset currentServerTimeCentral =
-            TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, CentralTimeZoneInfo);
-        string currentServerTime =
-            $"{currentServerTimeCentral:f} ({GetAbbreviation(currentServerTimeCentral)})";
+        string currentServerTime = Utilities.FormatCurrentServerTime(DateTimeOffset.UtcNow);
 
         AccessToken token = default;
 
@@ -55,6 +42,8 @@ public class GHCP_SDK_Service
         string baseUrl = $"{FoundryUrl}/openai/v1";
         string model = ModelName;
         string prompt = Prompt;
+
+        _logger.LogInformation("Run button clicked. Calling model {ModelName} on {FoundryUrl} with prompt: \"{Prompt}\".", model, FoundryUrl, prompt);
 
         long startTimestamp = Stopwatch.GetTimestamp();
 
@@ -81,45 +70,38 @@ public class GHCP_SDK_Service
                 },
                 cancellationToken);
 
-            AssistantMessageEvent? response = await session.SendAndWaitAsync(
-                new MessageOptions
-                {
-                    Prompt = prompt,
-                },
-                cancellationToken: cancellationToken);
+            AssistantMessageEvent? response = await session.SendAndWaitAsync(new MessageOptions { Prompt = prompt, }, cancellationToken: cancellationToken);
 
-            return new DemoRunResult(
+            DemoRunResult result = new(
                 response?.Data?.Content ?? string.Empty,
                 events,
                 currentServerTime,
-                Format(token.ExpiresOn),
-                Format(token.RefreshOn),
+                Utilities.Format(token.ExpiresOn),
+                Utilities.Format(token.RefreshOn),
                 Stopwatch.GetElapsedTime(startTimestamp));
+
+            _logger.LogInformation("Finished calling model {ModelName} on {FoundryUrl} with prompt: \"{Prompt}\" in {Elapsed}. CurrentTime={CurrentServerTime}; TokenExpiresOn={TokenExpiresOn}; TokenRefreshOn={TokenRefreshOn}; Response={Response}", model, FoundryUrl, prompt, result.Elapsed, result.CurrentServerTime, result.TokenExpiresOn, result.TokenRefreshOn, result.Response);
+
+            return result;
         }
         catch (Exception ex)
         {
-            return new DemoRunResult(
+            DemoRunResult result = new(
                 string.Empty,
                 events,
                 currentServerTime,
-                Format(token.ExpiresOn),
-                Format(token.RefreshOn),
+                Utilities.Format(token.ExpiresOn),
+                Utilities.Format(token.RefreshOn),
                 Stopwatch.GetElapsedTime(startTimestamp),
                 ex.Message);
+
+            (int? statusCode, string? serviceErrorCode) = Utilities.TryGetServiceErrorMetadata(ex);
+            string innerExceptions = Utilities.FlattenInnerExceptions(ex);
+            string securityHint = Utilities.GetSecurityHint(ex, statusCode);
+
+            _logger.LogError(ex, "Failed calling model {ModelName} on {FoundryUrl} with prompt: \"{Prompt}\" in {Elapsed}. CurrentTime={CurrentServerTime}; TokenExpiresOn={TokenExpiresOn}; TokenRefreshOn={TokenRefreshOn}; Error={Error}; ExceptionType={ExceptionType}; StatusCode={StatusCode}; ServiceErrorCode={ServiceErrorCode}; SecurityHint={SecurityHint}; InnerExceptions={InnerExceptions}", model, FoundryUrl, prompt, result.Elapsed, result.CurrentServerTime, result.TokenExpiresOn, result.TokenRefreshOn, result.Error, ex.GetType().FullName, statusCode, serviceErrorCode, securityHint, innerExceptions);
+
+            return result;
         }
     }
-
-    private static string Format(DateTimeOffset? value)
-    {
-        if (value is null || value == default(DateTimeOffset))
-        {
-            return "—";
-        }
-
-        DateTimeOffset central = TimeZoneInfo.ConvertTime(value.Value, CentralTimeZoneInfo);
-        return $"{central:f} ({GetAbbreviation(central)})";
-    }
-
-    private static string GetAbbreviation(DateTimeOffset value) =>
-        CentralTimeZoneInfo.IsDaylightSavingTime(value) ? "CDT" : "CST";
 }
