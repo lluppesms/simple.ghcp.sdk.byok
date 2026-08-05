@@ -92,33 +92,52 @@ The launch profiles set `AZURE_TOKEN_CREDENTIALS` to `AzureCliCredential`, which
 
 When hosted in Azure, the same service can use managed identity instead of Azure CLI credentials.
 
-At a high level:
+At a high level, the workflow and Bicep will set this up for you:
 
-1. Deploy the web app infrastructure.
-1. Enable a system-assigned or user-assigned managed identity for the app.
-1. Grant that identity permission to invoke the Foundry model.
-1. Configure app settings using double underscores for nested config keys:
-
-   ```text
-   Azure__EntraTenantId=<tenant-id>
-   Azure__FoundryResourceUrl=https://your-foundry-resource.services.ai.azure.com
-   Azure__ModelName=<model-deployment-name>
-   Azure__TokenScope=https://cognitiveservices.azure.com/.default
-   Demo__Prompt=Tell me why managed identity is useful.
-   AZURE_TOKEN_CREDENTIALS=ManagedIdentityCredential
-   ```
-
-If you use a user-assigned managed identity, also set:
-
-```text
-AZURE_CLIENT_ID=<managed-identity-client-id>
-```
+   1. Deploy the web app infrastructure
+   1. Enable a user-assigned managed identity for the app
+   1. Grant that identity permission to invoke the Foundry model
+   1. Configure app settings with these values
+      ```text
+      Azure__EntraTenantId=<tenant-id>
+      Azure__FoundryResourceUrl=https://your-foundry-resource.services.ai.azure.com
+      Azure__ModelName=<model-deployment-name>
+      Azure__TokenScope=https://cognitiveservices.azure.com/.default
+      Demo__Prompt=Tell me why managed identity is useful.
+      AZURE_TOKEN_CREDENTIALS=ManagedIdentityCredential
+      AZURE_CLIENT_ID=<managed-identity-client-id>
+      ```
+   1. Deploy the application binaries
 
 ## GitHub Actions
 
 The [bicep-build-deploy-webapp.yml](./.github/workflows/bicep-build-deploy-webapp.yml) will deploy the app using Bicep.  Before running the action, you must [set up some GitHub environment variables](./.github/CreateGitHubSecrets.md).
 
-## What To Watch For
+### TL/DR - get the GitHub Action running
+1. [Set up a federated credential](./.github/CreateGitHubSecrets.md) for this repo
+1. Create these variables in this repo:
+   ```bash
+   # Environment secrets used to log into Azure for deploy
+   gh secret set --env dev AZURE_CLIENT_ID -b '<app-registration-client-id>'
+   gh secret set --env dev AZURE_TENANT_ID -b '<tenant-guid>'
+   gh secret set --env dev AZURE_SUBSCRIPTION_ID -b '<subscription-guid>'
+   # Repository (or environment) variables used to name resources
+   gh variable set APP_NAME -b 'ghcp-sdk-byok'
+   gh variable set RESOURCE_GROUP_LOCATION -b 'centralus'
+   gh variable set RESOURCE_GROUP_PREFIX -b 'rg-ghcp-sdk-byok'
+   gh variable set INSTANCE_NUMBER -b '1'
+   # Pre-Existing Foundry Name and model name
+   gh variable set --env dev FOUNDRY_RESOURCE_URL -b 'https://your-foundry-resource.services.ai.azure.com'
+   gh variable set --env dev FOUNDRY_NAME -b 'your-foundry-resource'
+   gh variable set --env dev FOUNDRY_RESOURCE_URL -b 'rg-foundry'
+   gh variable set --env dev MODEL_NAME -b 'gpt-5.6-luna'
+   gh variable set --env dev ENTRA_TENANT_ID -b '<GUID>'
+   ```
+1. Run the [bicep-build-deploy-webapp.yml](./.github/workflows/bicep-build-deploy-webapp.yml)
+
+---
+
+## What to watch for after it is deployed
 
 After a run, the page shows:
 

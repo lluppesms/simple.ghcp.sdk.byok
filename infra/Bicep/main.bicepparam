@@ -14,5 +14,5 @@ param azureFoundryResourceGroup = '#{FOUNDRY_RESOURCE_GROUP}#'
 param azureModelName = '#{MODEL_NAME}#'
 param azureEntraTenantId = '#{ENTRA_TENANT_ID}#'
 
-param servicePlanName = '#{EXISTING_SERVICEPLAN_NAME}#'
-param servicePlanResourceGroupName = '#{EXISTING_SERVICEPLAN_RESOURCE_GROUP_NAME}#'
+param existingServicePlanName = '#{EXISTING_SERVICEPLAN_NAME}#'
+param existingServicePlanResourceGroupName = '#{EXISTING_SERVICEPLAN_RESOURCE_GROUP_NAME}#'
