@@ -38,7 +38,7 @@ public class GHCP_SDK_Service
 
         AccessToken token = default;
 
-        string scope = _configuration["Azure:TokenScope"] ?? "https://ai.azure.com/.default";
+        string scope = _configuration["Azure:TokenScope"] ?? "https://cognitiveservices.azure.com/.default";
         string baseUrl = $"{FoundryUrl}/openai/v1";
         string model = ModelName;
         string prompt = Prompt;
@@ -64,13 +64,28 @@ public class GHCP_SDK_Service
                             token = await _credential.GetTokenAsync(
                                 new TokenRequestContext([scope]),
                                 cancellationToken);
+
+                            string tokenAudience = Utilities.GetJwtClaim(token.Token, "aud");
+                            string tokenTenantId = Utilities.GetJwtClaim(token.Token, "tid");
+                            string tokenAppId = Utilities.GetJwtClaim(token.Token, "appid");
+
+                            _logger.LogInformation(
+                                "Acquired Entra token for Foundry call. Scope={Scope}; Audience={Audience}; TenantId={TenantId}; AppId={AppId}; ExpiresOn={ExpiresOn}",
+                                scope,
+                                tokenAudience,
+                                tokenTenantId,
+                                tokenAppId,
+                                token.ExpiresOn);
+
                             return token.Token;
                         },
                     },
                 },
                 cancellationToken);
 
-            AssistantMessageEvent? response = await session.SendAndWaitAsync(new MessageOptions { Prompt = prompt, }, cancellationToken: cancellationToken);
+            AssistantMessageEvent? response = await session.SendAndWaitAsync(
+                new MessageOptions { Prompt = prompt, }, 
+                cancellationToken: cancellationToken);
 
             DemoRunResult result = new(
                 response?.Data?.Content ?? string.Empty,

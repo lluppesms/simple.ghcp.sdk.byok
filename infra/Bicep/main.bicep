@@ -86,6 +86,7 @@ module appRoleAssignments './modules/iam/aiuserroleassignment.bicep' = if (addRo
     identityPrincipalId: identity!.outputs.managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
     aiServicesName: existingFoundry.name
+    aiServicesResourceGroup: azureFoundryResourceGroup
   }
 }
 
@@ -140,7 +141,7 @@ module webSiteModule './modules/webapp/website.bicep' = if (deployWebAppEffectiv
       Azure__EntraTenantId: azureEntraTenantId
       Azure__FoundryResourceUrl: azureFoundryResourceUrl
       Azure__ModelName: azureModelName
-      Azure__TokenScope: 'https://ai.azure.com/.default'
+      Azure__TokenScope: 'https://cognitiveservices.azure.com/.default'
     }
   }
 }
