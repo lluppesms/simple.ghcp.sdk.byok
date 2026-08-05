@@ -156,32 +156,32 @@ resource webSiteAppSettings 'Microsoft.Web/sites/config@2024-11-01' = {
 //   }
 // }
 
-// https://learn.microsoft.com/en-us/azure/app-service/troubleshoot-diagnostic-logs
-resource webSiteAuditLogging 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
-  name: '${webSiteResource.name}-auditlogs'
-  scope: webSiteResource
-  properties: {
-    workspaceId: workspaceId
-    logs: [
-      {
-        category: 'AppServiceIPSecAuditLogs'
-        enabled: true
-        // retentionPolicy: {
-        //   days: 30
-        //   enabled: true 
-        // }
-      }
-      {
-        category: 'AppServiceAuditLogs'
-        enabled: true
-        // retentionPolicy: {
-        //   days: 30
-        //   enabled: true 
-        // }
-      }
-    ]
-  }
-}
+// // https://learn.microsoft.com/en-us/azure/app-service/troubleshoot-diagnostic-logs
+// resource webSiteAuditLogging 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+//   name: '${webSiteResource.name}-auditlogs'
+//   scope: webSiteResource
+//   properties: {
+//     workspaceId: workspaceId
+//     logs: [
+//       {
+//         category: 'AppServiceIPSecAuditLogs'
+//         enabled: true
+//         // retentionPolicy: {
+//         //   days: 30
+//         //   enabled: true 
+//         // }
+//       }
+//       {
+//         category: 'AppServiceAuditLogs'
+//         enabled: true
+//         // retentionPolicy: {
+//         //   days: 30
+//         //   enabled: true 
+//         // }
+//       }
+//     ]
+//   }
+// }
 
 // resource appServiceMetricLogging 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
 //   name: '${appServiceResource.name}-metrics'
