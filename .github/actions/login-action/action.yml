@@ -35,7 +35,7 @@ runs:
 
     - name: Login to Azure using OIDC
       if: ${{ steps.auth-check.outputs.auth-method == 'oidc' }}
-      uses: azure/login@v2
+      uses: azure/login@v3
       with:
         client-id: ${{ inputs.client-id }}
         tenant-id: ${{ inputs.tenant-id }}
@@ -43,7 +43,7 @@ runs:
 
     - name: Login to Azure using Secret
       if: ${{ steps.auth-check.outputs.auth-method == 'client-secret' }}
-      uses: azure/login@v2
+      uses: azure/login@v3
       with:
         creds: '{"clientId":"${{ inputs.client-id }}","clientSecret":"${{ inputs.client-secret }}","tenantId":"${{ inputs.tenant-id }}","subscriptionId":"${{ inputs.subscription-id }}"}'
 

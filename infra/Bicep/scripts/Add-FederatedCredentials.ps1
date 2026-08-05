@@ -162,7 +162,7 @@ Write-Host ""
 Write-Host "  2. In your GitHub Actions workflow, use:" -ForegroundColor White
 Write-Host @"
      - name: Azure Login
-       uses: azure/login@v2
+       uses: azure/login@v3
        with:
          client-id: `${{ secrets.AZURE_CLIENT_ID }}
          tenant-id: `${{ secrets.AZURE_TENANT_ID }}
