@@ -97,7 +97,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
 
     - name: Restore Dependencies
-      run: dotnet restore "${{ inputs.rootDirectory }}"
+      run: dotnet restore "${{ inputs.rootDirectory }}" --runtime ${{ env.TARGET_RUNTIME }}
 
     - name: Create Runtime Variables
       id: vars
