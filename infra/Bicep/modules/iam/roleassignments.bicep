@@ -11,6 +11,7 @@ param registryName string = ''
 param storageAccountName string = ''
 param aiSearchName string = ''
 param aiServicesName string = ''
+param aiServicesResourceGroup string = ''
 param keyVaultName string = ''
 param identityPrincipalId string
 @allowed(['ServicePrincipal', 'User'])
@@ -133,10 +134,11 @@ resource keyVault_Role_SecretsOfficer 'Microsoft.Authorization/roleAssignments@2
 // ----------------------------------------------------------------------------------------------------
 resource aiService 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = if (addCogServicesRoles) {
   name: aiServicesName
+  scope: resourceGroup(aiServicesResourceGroup)
 }
 resource cognitiveServices_Role_OpenAIUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (addCogServicesRoles) {
   name: guid(aiService.id, identityPrincipalId, roleDefinitions.openai.cognitiveServicesOpenAIUserRoleId)
-  scope: aiService
+  scope: aiService!
   properties: {
     principalId: identityPrincipalId
     principalType: principalType
@@ -146,7 +148,7 @@ resource cognitiveServices_Role_OpenAIUser 'Microsoft.Authorization/roleAssignme
 }
 resource cognitiveServices_Role_OpenAIContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (addCogServicesRoles) {
   name: guid(aiService.id, identityPrincipalId, roleDefinitions.openai.cognitiveServicesOpenAIContributorRoleId)
-  scope: aiService
+  scope: aiService!
   properties: {
     principalId: identityPrincipalId
     principalType: principalType
@@ -156,7 +158,7 @@ resource cognitiveServices_Role_OpenAIContributor 'Microsoft.Authorization/roleA
 }
 resource cognitiveServices_Role_User 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (addCogServicesRoles) {
   name: guid(aiService.id, identityPrincipalId, roleDefinitions.openai.cognitiveServicesUserRoleId)
-  scope: aiService
+  scope: aiService!
   properties: {
     principalId: identityPrincipalId
     principalType: principalType
@@ -166,7 +168,7 @@ resource cognitiveServices_Role_User 'Microsoft.Authorization/roleAssignments@20
 }
 resource cognitiveServices_Role_Contributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (addCogServicesRoles) {
   name: guid(aiService.id, identityPrincipalId, roleDefinitions.openai.cognitiveServicesContributorRoleId)
-  scope: aiService
+  scope: aiService!
   properties: {
     principalId: identityPrincipalId
     principalType: principalType

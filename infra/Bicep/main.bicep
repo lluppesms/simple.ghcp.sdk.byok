@@ -79,7 +79,8 @@ module identity './modules/iam/identity.bicep' = if (createUserAssignedIdentity)
   }
 }
 
-module appRoleAssignments './modules/iam/roleassignments.bicep' = if (addRoleAssignments && createUserAssignedIdentity) {
+// Add AI User Role to the managed identity
+module appRoleAssignments './modules/iam/aiuserroleassignment.bicep' = if (addRoleAssignments && createUserAssignedIdentity) {
   name: 'appRoleAssignments${deploymentSuffix}'
   params: {
     identityPrincipalId: identity!.outputs.managedIdentityPrincipalId
@@ -87,15 +88,16 @@ module appRoleAssignments './modules/iam/roleassignments.bicep' = if (addRoleAss
     aiServicesName: existingFoundry.name
   }
 }
-// also add rights to the web app storage account (App Service only)
-module appRoleAssignments2 './modules/iam/roleassignments.bicep' = if (addRoleAssignments && deployWebAppEffective) {
-  name: 'appRoleAssignments-webapp-storage${deploymentSuffix}'
-  params: {
-    identityPrincipalId: webSiteModule!.outputs.systemPrincipalId
-    principalType: 'ServicePrincipal'
-    aiServicesName: existingFoundry.name
-  }
-}
+
+// // also add rights to the web app storage account (App Service only)
+// module appRoleAssignments2 './modules/iam/aiuserroleassignment.bicep' = if (addRoleAssignments && deployWebAppEffective) {
+//   name: 'appRoleAssignments-webapp-storage${deploymentSuffix}'
+//   params: {
+//     identityPrincipalId: webSiteModule!.outputs.systemPrincipalId
+//     principalType: 'ServicePrincipal'
+//     aiServicesName: existingFoundry.name
+//   }
+// }
 
 // --------------------------------------------------------------------------------
 // App Service Infrastructure (deployed when deploymentType is webapp/appservice alias or all)
