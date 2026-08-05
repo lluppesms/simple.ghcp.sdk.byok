@@ -82,11 +82,11 @@ module identity './modules/iam/identity.bicep' = if (createUserAssignedIdentity)
 // Add AI User Role to the managed identity
 module appRoleAssignments './modules/iam/aiuserroleassignment.bicep' = if (addRoleAssignments && createUserAssignedIdentity) {
   name: 'appRoleAssignments${deploymentSuffix}'
+  scope: resourceGroup(azureFoundryResourceGroup)
   params: {
     identityPrincipalId: identity!.outputs.managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
     aiServicesName: existingFoundry.name
-    aiServicesResourceGroup: azureFoundryResourceGroup
   }
 }
 

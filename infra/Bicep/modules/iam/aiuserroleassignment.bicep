@@ -1,6 +1,8 @@
 // ----------------------------------------------------------------------------------------------------
 // Assign roles to the service principal or a given user
 // ----------------------------------------------------------------------------------------------------
+targetScope = 'resourceGroup'
+
 // NOTE: this requires elevated permissions in the resource group
 // Contributor is not enough, you need Owner or User Access Administrator
 // ----------------------------------------------------------------------------------------------------
@@ -8,7 +10,6 @@
 // ----------------------------------------------------------------------------------------------------
 
 param aiServicesName string = ''
-param aiServicesResourceGroup string = ''
 param identityPrincipalId string
 @allowed(['ServicePrincipal', 'User'])
 param principalType string = 'ServicePrincipal'
@@ -22,11 +23,10 @@ var addCogServicesRoles = !empty(aiServicesName)
 // ----------------------------------------------------------------------------------------------------
 resource aiService 'Microsoft.CognitiveServices/accounts@2024-06-01-preview' existing = if (addCogServicesRoles) {
   name: aiServicesName
-  scope: resourceGroup(aiServicesResourceGroup)
 }
 resource cognitiveServices_Role_OpenAIUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (addCogServicesRoles) {
   name: guid(aiService.id, identityPrincipalId, roleDefinitions.openai.cognitiveServicesOpenAIUserRoleId)
-  scope: aiService!
+  scope: aiService
   properties: {
     principalId: identityPrincipalId
     principalType: principalType

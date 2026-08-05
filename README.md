@@ -27,7 +27,7 @@ sequenceDiagram
 
     Learner->>UI: Click Run
     UI->>Service: RunAsync()
-    Service->>Identity: Request token for https://ai.azure.com/.default
+    Service->>Identity: Request token for https://cognitiveservices.azure.com/.default
     Identity-->>Service: Entra access token
     Service->>Foundry: Send prompt via GitHub Copilot SDK
     Foundry-->>Service: Model response
@@ -69,7 +69,7 @@ sequenceDiagram
        "EntraTenantId": "00000000-0000-0000-0000-000000000000",
        "FoundryResourceUrl": "https://your-foundry-resource.services.ai.azure.com",
        "ModelName": "your-model-deployment-name",
-       "TokenScope": "https://ai.azure.com/.default"
+       "TokenScope": "https://cognitiveservices.azure.com/.default"
      },
      "Demo": {
        "Prompt": "Explain managed identity like I am new to Azure."
@@ -103,7 +103,7 @@ At a high level:
    Azure__EntraTenantId=<tenant-id>
    Azure__FoundryResourceUrl=https://your-foundry-resource.services.ai.azure.com
    Azure__ModelName=<model-deployment-name>
-   Azure__TokenScope=https://ai.azure.com/.default
+   Azure__TokenScope=https://cognitiveservices.azure.com/.default
    Demo__Prompt=Tell me why managed identity is useful.
    AZURE_TOKEN_CREDENTIALS=ManagedIdentityCredential
    ```
