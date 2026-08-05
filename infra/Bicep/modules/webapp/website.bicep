@@ -3,7 +3,7 @@
 // --------------------------------------------------------------------------------
 param webSiteName string = ''
 param location string = resourceGroup().location
-param appInsightsLocation string = resourceGroup().location
+//param appInsightsLocation string = resourceGroup().location
 param environmentCode string = 'dev'
 param commonTags object = {}
 param managedIdentityId string = ''
@@ -27,34 +27,35 @@ var tags = union(commonTags, templateTag)
 var webSiteTags = union(commonTags, templateTag, azdTag)
 
 // Base app settings that are always applied
-var baseAppSettings = {
-  APPINSIGHTS_INSTRUMENTATIONKEY: appInsightsResource.properties.InstrumentationKey
-  APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsResource.properties.ConnectionString
-  ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
-}
+  // var baseAppSettings = {
+  //   APPINSIGHTS_INSTRUMENTATIONKEY: appInsightsResource.properties.InstrumentationKey
+  //   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsResource.properties.ConnectionString
+  //   ApplicationInsightsAgent_EXTENSION_VERSION: '~2'
+  // }
 
 // Merge base settings with custom settings
-var mergedAppSettings = union(baseAppSettings, customAppSettings)
+// var mergedAppSettings = union(baseAppSettings, customAppSettings)
+var mergedAppSettings = customAppSettings
 
 // --------------------------------------------------------------------------------
 var linuxFxVersion = webAppKind == 'linux' ? 'DOTNETCORE|10.0' : '' // 	The runtime stack of web app
-var appInsightsName = toLower('${webSiteName}-insights')
+// var appInsightsName = toLower('${webSiteName}-insights')
 var useUserAssignedIdentity = !empty(managedIdentityId)
 
 // --------------------------------------------------------------------------------
-resource appInsightsResource 'Microsoft.Insights/components@2020-02-02' = {
-  name: appInsightsName
-  location: appInsightsLocation
-  tags: tags
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    Request_Source: 'rest'
-    publicNetworkAccessForIngestion: 'Enabled'
-    publicNetworkAccessForQuery: 'Enabled'
-    WorkspaceResourceId: workspaceId
-  }
-}
+// resource appInsightsResource 'Microsoft.Insights/components@2020-02-02' = {
+//   name: appInsightsName
+//   location: appInsightsLocation
+//   tags: tags
+//   kind: 'web'
+//   properties: {
+//     Application_Type: 'web'
+//     Request_Source: 'rest'
+//     publicNetworkAccessForIngestion: 'Enabled'
+//     publicNetworkAccessForQuery: 'Enabled'
+//     WorkspaceResourceId: workspaceId
+//   }
+// }
 
 resource appServiceResource 'Microsoft.Web/serverfarms@2024-11-01' existing = {
   name: appServicePlanName
@@ -83,16 +84,16 @@ resource webSiteResource 'Microsoft.Web/sites@2024-11-01' = {
       alwaysOn: true
       remoteDebuggingEnabled: false
       minimumElasticInstanceCount: 1
-      appSettings: [
-        { 
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: appInsightsResource.properties.InstrumentationKey 
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: 'InstrumentationKey=${appInsightsResource.properties.InstrumentationKey}'
-        }
-      ]
+      // appSettings: [
+      //   { 
+      //     name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+      //     value: appInsightsResource.properties.InstrumentationKey 
+      //   }
+      //   {
+      //     name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+      //     value: 'InstrumentationKey=${appInsightsResource.properties.InstrumentationKey}'
+      //   }
+      // ]
     }
   }
 }
@@ -207,8 +208,8 @@ output name string = webSiteName
 output hostName string = webSiteResource.properties.defaultHostName
 output systemPrincipalId string = webSiteResource.identity.principalId
 output userManagedPrincipalId string = managedIdentityPrincipalId
-output appInsightsName string = appInsightsName
-output appInsightsKey string = appInsightsResource.properties.InstrumentationKey
-output appInsightsConnectionString string = appInsightsResource.properties.ConnectionString
+// output appInsightsName string = appInsightsName
+// output appInsightsKey string = appInsightsResource.properties.InstrumentationKey
+// output appInsightsConnectionString string = appInsightsResource.properties.ConnectionString
 // Note: This will give you a warning saying it's not right, but it will contain the right value!
 // output ipAddress string = webSiteResource.properties.inboundIpAddress 
