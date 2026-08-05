@@ -61,7 +61,7 @@ module resourceNames 'resourcenames.bicep' = {
 }
 
 // --------------------------------------------------------------------------------
-// Find existing Azure Foundry  instance
+// Find existing Azure Foundry instance
 // --------------------------------------------------------------------------------
 resource existingFoundry 'Microsoft.CognitiveServices/accounts@2026-05-15-preview' existing = {
   scope: resourceGroup(azureFoundryResourceGroup)
@@ -89,16 +89,6 @@ module appRoleAssignments './modules/iam/aiuserroleassignment.bicep' = if (addRo
     aiServicesName: existingFoundry.name
   }
 }
-
-// // also add rights to the web app storage account (App Service only)
-// module appRoleAssignments2 './modules/iam/aiuserroleassignment.bicep' = if (addRoleAssignments && deployWebAppEffective) {
-//   name: 'appRoleAssignments-webapp-storage${deploymentSuffix}'
-//   params: {
-//     identityPrincipalId: webSiteModule!.outputs.systemPrincipalId
-//     principalType: 'ServicePrincipal'
-//     aiServicesName: existingFoundry.name
-//   }
-// }
 
 // --------------------------------------------------------------------------------
 // App Service Infrastructure (deployed when deploymentType is webapp/appservice alias or all)

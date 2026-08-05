@@ -9,8 +9,8 @@ param commonTags object = {}
 param managedIdentityId string = ''
 param managedIdentityPrincipalId string = ''
 
-@description('The workspace to store audit logs.')
-param workspaceId string = ''
+// @description('The workspace to store audit logs.')
+// param workspaceId string = ''
 
 @description('The Name of the service plan to deploy into.')
 param appServicePlanName string
@@ -23,7 +23,7 @@ param customAppSettings object = {}
 // --------------------------------------------------------------------------------
 var templateTag = { TemplateFile: '~website.bicep'}
 var azdTag = environmentCode == 'azd' ? { 'azd-service-name': 'web' } : {}
-var tags = union(commonTags, templateTag)
+//var tags = union(commonTags, templateTag)
 var webSiteTags = union(commonTags, templateTag, azdTag)
 
 // Base app settings that are always applied
