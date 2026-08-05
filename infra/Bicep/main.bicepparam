@@ -9,6 +9,8 @@ param location = '#{RESOURCE_GROUP_LOCATION}#'
 param instanceNumber = '#{INSTANCE_NUMBER}#'
 
 param azureFoundryResourceUrl = '#{FOUNDRY_RESOURCE_URL}#'
+param azureFoundryName = '#{FOUNDRY_NAME}#'
+param azureFoundryResourceGroup = '#{FOUNDRY_RESOURCE_GROUP}#'
 param azureModelName = '#{MODEL_NAME}#'
 param azureEntraTenantId = '#{ENTRA_TENANT_ID}#'
 

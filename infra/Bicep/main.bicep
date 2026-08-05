@@ -20,6 +20,8 @@ param webAppKind string = 'linux' // 'linux' or 'windows'
 param webSiteSku string = 'B1'
 
 param azureFoundryResourceUrl string = ''
+param azureFoundryName string = ''
+param azureFoundryResourceGroup string = ''
 param azureEntraTenantId string = ''
 param azureModelName string = ''
 
@@ -59,6 +61,16 @@ module resourceNames 'resourcenames.bicep' = {
 }
 
 // --------------------------------------------------------------------------------
+// Find existing Azure Foundry  instance
+// --------------------------------------------------------------------------------
+resource existingFoundry 'Microsoft.CognitiveServices/accounts@2026-05-15-preview' existing = {
+  scope: resourceGroup(azureFoundryResourceGroup)
+  name: azureFoundryName
+}
+
+// --------------------------------------------------------------------------------
+// Identity and Role Assignments
+// --------------------------------------------------------------------------------
 module identity './modules/iam/identity.bicep' = if (createUserAssignedIdentity) {
   name: 'appIdentity${deploymentSuffix}'
   params: {
@@ -72,6 +84,7 @@ module appRoleAssignments './modules/iam/roleassignments.bicep' = if (addRoleAss
   params: {
     identityPrincipalId: identity!.outputs.managedIdentityPrincipalId
     principalType: 'ServicePrincipal'
+    aiServicesName: existingFoundry.name
   }
 }
 // also add rights to the web app storage account (App Service only)
@@ -80,6 +93,7 @@ module appRoleAssignments2 './modules/iam/roleassignments.bicep' = if (addRoleAs
   params: {
     identityPrincipalId: webSiteModule!.outputs.systemPrincipalId
     principalType: 'ServicePrincipal'
+    aiServicesName: existingFoundry.name
   }
 }
 

@@ -24,6 +24,8 @@ gh variable set INSTANCE_NUMBER -b '1'
 
 # Foundry Name and model name
 gh variable set --env dev FOUNDRY_RESOURCE_URL -b 'https://your-foundry-resource.services.ai.azure.com'
+gh variable set --env dev FOUNDRY_NAME -b 'your-foundry-resource'
+gh variable set --env dev FOUNDRY_RESOURCE_URL -b 'rg-foundry'
 gh variable set --env dev MODEL_NAME -b 'gpt-5.6-luna'
 gh variable set --env dev ENTRA_TENANT_ID -b '<GUID>'
 ```
