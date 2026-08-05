@@ -1,0 +1,99 @@
+# ------------------------------------------------------------------------------------------------------------------------
+# GHA Workflow to deploy Azure Application
+# ------------------------------------------------------------------------------------------------------------------------
+# FYI: You need to set up some secrets before running this workflows - see CreateGitHubSecrets.md for details.
+# ------------------------------------------------------------------------------------------------------------------------
+name: build.deploy.webapp
+run-name: 'Build & Deploy Web App: ${{ inputs.bicepDeploymentMode }} using ENV ${{ inputs.deployEnvironment }} ${{vars.INSTANCE_NUMBER}} by @${{ github.actor }}'
+
+on: 
+  workflow_dispatch:
+    inputs:
+      deployEnvironment:
+        description: Environment
+        default: 'dev' 
+        type: environment 
+      runBuild:
+        description: Build Web App
+        default: true
+        type: boolean
+      runDeploy:
+        description: Deploy Web App
+        default: true
+        type: boolean
+      runSecurityScan:
+        description: Run Security Scan
+        default: false
+        type: boolean
+      runSmokeTest:
+        description: Run Smoke Tests
+        default: false
+        type: boolean
+      logLevel:
+        description: Log level
+        required: false
+        default: 'warning' 
+        type: choice
+        options:
+          - info
+          - warning
+          - debug 
+
+# ------------------------------------------------------------------------------------------------------------------------
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+  pages: write
+  security-events: write
+  checks: write
+  issues: write
+  pull-requests: write
+  packages: read
+
+# ------------------------------------------------------------------------------------------------------------------------
+jobs:
+  # ------------------------------------------------------------------------------------------------------------------------
+  scan-code:
+    name: Scan Source Code
+    uses: ./.github/workflows/template-scan-code.yml
+    secrets: inherit
+    if: inputs.runSecurityScan
+    with:
+      runMSDevSecOpsScan: ${{ inputs.runSecurityScan }}
+      runGHASScan: ${{ inputs.runSecurityScan }}
+
+  # ------------------------------------------------------------------------------------------------------------------------
+  build-web-app:
+    name: Build WebApp
+    uses: ./.github/workflows/template-webapp-build.yml
+    if: inputs.runBuild || inputs.runDeploy
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      rootDirectory: 'src/web'
+      projectName: 'ManagedIdentity'
+      testApplication: false
+      listFilesAfterBuild: true
+
+# ------------------------------------------------------------------------------------------------------------------------
+  deploy-web-app:
+    name: Deploy WebApp ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-webapp-deploy.yml
+    if: inputs.runDeploy
+    needs: build-web-app
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+
+# ------------------------------------------------------------------------------------------------------------------------
+  run-smoke-test:
+    name: Smoke Test ${{ inputs.deployEnvironment }}
+    uses: ./.github/workflows/template-smoke-test.yml
+    if: inputs.runSmokeTest
+    needs: deploy-web-app
+    secrets: inherit
+    with:
+      envCode: ${{ inputs.deployEnvironment }}
+      testPath: 'playwright/ui-tests'
+      testType: 'ui'
