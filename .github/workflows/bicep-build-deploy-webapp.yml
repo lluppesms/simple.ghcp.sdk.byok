@@ -21,6 +21,10 @@ on:
         description: Deploy Bicep
         default: true
         type: boolean
+      addRoleAssignments:
+        description: Add Role Assignments
+        type: boolean
+        default: true
       bicepDeploymentMode:
         description: Bicep Mode
         default: create
@@ -44,10 +48,6 @@ on:
         description: Run Smoke Tests
         default: false
         type: boolean
-      addRoleAssignments:
-        description: Add Role Assignments
-        type: boolean
-        default: true
       logLevel:
         description: Log level
         required: false
