@@ -245,6 +245,8 @@ jobs:
         SUMMARY: |
           ## Runtime AI configuration
           - Foundry URL: ${{ vars.FOUNDRY_RESOURCE_URL || '(not provided)' }}
+          - Foundry Name: ${{ vars.FOUNDRY_NAME || '(not provided)' }}
+          - Foundry Resource Group: ${{ vars.FOUNDRY_RESOURCE_GROUP || '(not provided)' }}
           - Model name: ${{ vars.MODEL_NAME || '(not provided)' }}
           - User-assigned identity enabled: ${{ inputs.createUserAssignedIdentity }}
       run: echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
