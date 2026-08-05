@@ -118,6 +118,9 @@ module webSiteModule './modules/webapp/website.bicep' = if (deployWebAppEffectiv
     customAppSettings: {
       AZURE_CLIENT_ID: effectiveManagedIdentityClientId
       AZURE_TOKEN_CREDENTIALS: 'ManagedIdentityCredential'
+      LANG: 'en_US.UTF-8'
+      LC_ALL: 'en_US.UTF-8'
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 'false'
       Azure__EntraTenantId: azureEntraTenantId
       Azure__FoundryResourceUrl: azureFoundryResourceUrl
       Azure__ModelName: azureModelName
