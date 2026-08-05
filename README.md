@@ -1,6 +1,6 @@
 # GHCP SDK Managed Identity Demo
 
-This repo is a small, friendly demo for learning how GitHub Copilot, the GitHub Copilot CLI, the GitHub Copilot SDK, Azure Managed Identity, and Azure AI Foundry can work together without storing model keys in your app.
+This repo is a small, friendly demo for learning how to use the GitHub Copilot SDK and Azure Managed Identity to call a model in Azure AI Foundry without storing model keys in your app.
 
 The short version: click **Run**, watch the app acquire an Entra token, send a prompt through the GitHub Copilot SDK to a Foundry-hosted model, and see the response plus the Azure Identity SDK events that happened along the way.
 
