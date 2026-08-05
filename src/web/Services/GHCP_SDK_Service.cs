@@ -17,7 +17,7 @@ public class GHCP_SDK_Service
     private readonly IConfiguration _configuration;
     private readonly DefaultAzureCredential _credential;
 
-    public string ModelName => _configuration["Azure:ModelName"] ?? "gpt-5.4-nano";
+    public string ModelName => _configuration["Azure:ModelName"] ?? "gpt-5.6-luna";
 
     public string FoundryUrl => _configuration["Azure:FoundryResourceUrl"]?.TrimEnd('/') ?? string.Empty;
 

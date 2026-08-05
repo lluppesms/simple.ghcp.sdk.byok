@@ -12,7 +12,7 @@ on:
       deployEnvironment:
         description: Environment
         default: 'dev' 
-        type: environment
+        type: environment 
       createResourceGroup:
         description: Create Resource Group?
         type: boolean
