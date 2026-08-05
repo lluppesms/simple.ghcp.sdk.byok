@@ -116,7 +116,7 @@ AZURE_CLIENT_ID=<managed-identity-client-id>
 
 ## GitHub Actions
 
-The [bicep-build-deploy-webapp.yml](.github\workflows\bicep-build-deploy-webapp.yml) will deploy the app using Bicep.  Before running the action, you must [set up some GitHub environment variables](.github\CreateGitHubSecrets.md).
+The [bicep-build-deploy-webapp.yml](./.github/workflows/bicep-build-deploy-webapp.yml) will deploy the app using Bicep.  Before running the action, you must [set up some GitHub environment variables](./.github/CreateGitHubSecrets.md).
 
 ## What To Watch For
 
